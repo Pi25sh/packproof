@@ -185,4 +185,64 @@ class InspectionReport {
       ],
     );
   }
+
+  factory InspectionReport.mockToothpasteViolation({
+    String? imagePath,
+    Uint8List? imageBytes,
+    String? sampleTag,
+  }) {
+    return InspectionReport(
+      caseId: 'LMD-2026-0915-081',
+      officerName: 'Inspector R. Sharma',
+      officerId: 'INSP-DL-4082',
+      timestamp: DateTime.now(),
+      businessName: 'Local Retailer',
+      location: 'Store Front',
+      overallStatus: InspectionStatus.violation,
+      statusSummary: 'VIOLATION DETECTED: MRP/MFD MISSING',
+      imagePath: imagePath,
+      imageBytes: imageBytes,
+      sampleImageTag: sampleTag ?? 'closeup_toothpaste',
+      productDetails: const ProductDetails(
+        brandName: 'Closeup Fluoridated Toothpaste',
+        declaredNetQuantity: '80 g',
+        declaredMrp: 'Not found',
+        unitSalePrice: 'Not calculated',
+        batchMfgDate: 'Not found',
+        manufacturerAddress: 'Hindustan Unilever Ltd., Unit 2, Assam 786151',
+        consumerCareDetails: '1800-10-22-221 | lever.care@unilever.com',
+        countryOfOrigin: 'India',
+      ),
+      complianceChecks: const [
+        ComplianceCheck(
+          title: 'Mandatory Declarations',
+          isCompliant: false,
+          statusText: 'Non-compliant',
+          ruleReference: 'Rule 6(1), PCR 2011',
+          description: 'Manufacturer address, net quantity, and consumer care details are present. However, the printed dynamic values for MRP and Manufacturing Date are missing from this panel.',
+        ),
+        ComplianceCheck(
+          title: 'MRP & Unit Sale Price',
+          isCompliant: false,
+          statusText: 'Non-compliant',
+          ruleReference: 'Rule 6(1)(e) & 6(11)',
+          description: 'Maximum Retail Price (MRP) is not stamped on the packaging panel shown. Unit Sale Price cannot be determined.',
+        ),
+        ComplianceCheck(
+          title: 'Consumer Care Details',
+          isCompliant: true,
+          statusText: 'Compliant',
+          ruleReference: 'Rule 6(1)(da)',
+          description: 'Toll-free number, PO Box address, and email are clearly provided.',
+        ),
+        ComplianceCheck(
+          title: 'Net Quantity',
+          isCompliant: true,
+          statusText: 'Compliant',
+          ruleReference: 'Rule 6(1)(c)',
+          description: 'Net quantity is declared as 80 g.',
+        ),
+      ],
+    );
+  }
 }

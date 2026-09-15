@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../../core/theme/app_theme.dart';
 import 'capture_screen.dart';
 import 'login_screen.dart';
 import 'logs_screen.dart';
 import 'rules_screen.dart';
+import 'bluetooth_scale_screen.dart';
+import 'notice_generation_screen.dart';
+import 'ecommerce_audit_screen.dart';
+import 'citizen_report_screen.dart';
 
 /// Screen 2: Home Screen / Main Officer Portal
-/// Features a Material 3 NavigationBar connecting:
-/// 1. New Inspection (Official portal, officer profile, primary Start Inspection CTA, quick links)
-/// 2. Case Logs (Searchable historical case audit register containing officer-uploaded photos & PDF memos)
-/// 3. Rules & Act (Statutory documentation of PCR 2011 & The Legal Metrology Act, 2009)
 class HomeScreen extends StatefulWidget {
   final int initialTabIndex;
 
@@ -24,11 +25,28 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late int _currentIndex;
+  bool _showHeatmapAlert = false;
+  Timer? _alertTimer;
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialTabIndex;
+    
+    // Simulate incoming citizen alert after 10 seconds for the demo
+    _alertTimer = Timer(const Duration(seconds: 10), () {
+      if (mounted) {
+        setState(() {
+          _showHeatmapAlert = true;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _alertTimer?.cancel();
+    super.dispose();
   }
 
   void _handleLogout() {
@@ -62,7 +80,6 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(builder: (_) => const CaptureScreen()),
     );
 
-    // If inspection was saved, officer can seamlessly view it in Case Logs
     if (result == true && mounted) {
       setState(() => _currentIndex = 1);
     }
@@ -91,9 +108,9 @@ class _HomeScreenState extends State<HomeScreen> {
           },
           destinations: const [
             NavigationDestination(
-              icon: Icon(Icons.add_a_photo_outlined),
-              selectedIcon: Icon(Icons.add_a_photo_rounded, color: AppTheme.primaryNavy),
-              label: 'New Inspection',
+              icon: Icon(Icons.dashboard_outlined),
+              selectedIcon: Icon(Icons.dashboard_rounded, color: AppTheme.primaryNavy),
+              label: 'HQ Dashboard',
             ),
             NavigationDestination(
               icon: Icon(Icons.assignment_outlined),
@@ -111,7 +128,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Tab 0: Clean Government Enforcement Portal (No metrics, no recent inspections)
   Widget _buildInspectionPortalView() {
     return Scaffold(
       backgroundColor: AppTheme.surfaceLight,
@@ -120,7 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Inspector R. Sharma',
+              'DoCA HQ Dashboard',
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
@@ -139,7 +155,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(width: 5),
                 const Text(
-                  'Zone 1 • North District Enforcement',
+                  'Central Server connected',
                   style: TextStyle(
                     fontSize: 11,
                     color: Color(0xFFCBD5E1),
@@ -160,24 +176,23 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 540),
+          constraints: const BoxConstraints(maxWidth: 800), // Wider for dashboard look
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
             children: [
-              // Government Department Banner
-              _buildDepartmentHeader(),
-              const SizedBox(height: 20),
-
-              // Officer Identity & Designation Card
-              _buildOfficerProfileCard(),
+              // Live Heatmap Alerts
+              _buildLiveHeatmapAlerts(),
               const SizedBox(height: 24),
 
               // Primary Action: "+ Start New Inspection"
               _buildPrimaryActionButton(),
               const SizedBox(height: 24),
 
-              // Quick Navigation Cards (Case Logs & Statutory Rules)
-              _buildQuickResourceLinks(),
+              const Text('Advanced Inspection Tools', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 12),
+              
+              // MVP Grid
+              _buildMvpFeaturesGrid(),
               const SizedBox(height: 28),
 
               // Statutory Instructions & Legal Notice
@@ -190,154 +205,84 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildDepartmentHeader() {
+  Widget _buildLiveHeatmapAlerts() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderLight),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryNavy.withAlpha(20),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.balance_rounded, color: AppTheme.primaryNavy, size: 24),
-          ),
-          const SizedBox(width: 14),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Legal Metrology Department',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.primaryNavy,
-                  ),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  'Package Commodities Inspection & Enforcement Portal',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    color: AppTheme.textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOfficerProfileCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.borderLight),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(6),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryNavy,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Center(
-                  child: Text(
-                    'RS',
-                    style: TextStyle(
-                      color: AppTheme.accentGold,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Inspector R. Sharma',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Officer ID: INSP-DL-4082 • Field Enforcement Unit',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppTheme.passGreen.withAlpha(25),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppTheme.passGreen.withAlpha(80)),
-                ),
-                child: const Text(
-                  'ACTIVE',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.passText,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-            ],
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              color: AppTheme.primaryNavy,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.map_rounded, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Live India Violation Heatmap', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-          const Divider(height: 1, color: AppTheme.borderLight),
-          const SizedBox(height: 10),
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  'Jurisdiction: North District Retail & Wholesale',
-                  style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary, fontWeight: FontWeight.w500),
-                  overflow: TextOverflow.ellipsis,
-                ),
+          Container(
+            height: 200,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade200,
+              image: const DecorationImage(
+                image: NetworkImage('https://images.unsplash.com/photo-1524661135-423995f22d0b?ixlib=rb-1.2.1&auto=format&fit=crop&w=1000&q=80'),
+                fit: BoxFit.cover,
+                colorFilter: ColorFilter.mode(Colors.black38, BlendMode.darken),
               ),
-              SizedBox(width: 8),
-              Text(
-                'Sec. 15 LM Act',
-                style: TextStyle(fontSize: 11, color: AppTheme.primaryBlue, fontWeight: FontWeight.w600),
-              ),
-            ],
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+            ),
+            child: Stack(
+              children: [
+                if (_showHeatmapAlert)
+                  Positioned(
+                    top: 80,
+                    left: 120,
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      duration: const Duration(milliseconds: 800),
+                      curve: Curves.elasticOut,
+                      builder: (context, value, child) {
+                        return Transform.scale(
+                          scale: value,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.redAccent.withOpacity(0.9),
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [BoxShadow(color: Colors.red.withOpacity(0.5), blurRadius: 12, spreadRadius: 4)],
+                            ),
+                            child: const Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.warning, color: Colors.white, size: 20),
+                                SizedBox(height: 4),
+                                Text('Rule 21(1)(i)', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                Text('Citizen Report', style: TextStyle(color: Colors.white, fontSize: 9)),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                if (!_showHeatmapAlert)
+                  const Center(
+                    child: Text('Monitoring all zones...', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w500)),
+                  )
+              ],
+            ),
           ),
         ],
       ),
@@ -374,7 +319,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
-                    Icons.add_a_photo_rounded,
+                    Icons.view_in_ar_rounded,
                     color: Colors.white,
                     size: 28,
                   ),
@@ -385,7 +330,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '+ Start New Inspection',
+                        '+ Live AR Inspection Viewfinder',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 18,
@@ -395,7 +340,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       SizedBox(height: 3),
                       Text(
-                        'Capture label & verify PCR 2011 compliance',
+                        'Virtual calipers, PDP Area, Real-time status',
                         style: TextStyle(
                           color: Color(0xFFCBD5E1),
                           fontSize: 12,
@@ -419,30 +364,49 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Quick link cards to Case Logs and Statutory Rules
-  Widget _buildQuickResourceLinks() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildResourceTile(
-            icon: Icons.assignment_rounded,
-            title: 'Case Logs',
-            subtitle: 'Officer uploads & memos',
-            accentColor: AppTheme.primaryBlue,
-            onTap: () => setState(() => _currentIndex = 1),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildResourceTile(
-            icon: Icons.menu_book_rounded,
-            title: 'Rules & Act',
-            subtitle: 'PCR 2011 & Font Tables',
-            accentColor: AppTheme.accentGold,
-            onTap: () => setState(() => _currentIndex = 2),
-          ),
-        ),
-      ],
+  Widget _buildMvpFeaturesGrid() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        int crossAxisCount = constraints.maxWidth > 600 ? 2 : 1;
+        return GridView.count(
+          crossAxisCount: crossAxisCount,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 16,
+          crossAxisSpacing: 16,
+          childAspectRatio: constraints.maxWidth > 600 ? 2.5 : 3.5,
+          children: [
+            _buildResourceTile(
+              icon: Icons.bluetooth_rounded,
+              title: 'BLE Scale Sync',
+              subtitle: '5th Schedule Math Engine',
+              accentColor: Colors.blueAccent,
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BluetoothScaleScreen())),
+            ),
+            _buildResourceTile(
+              icon: Icons.qr_code_scanner_rounded,
+              title: 'Notices & Forms',
+              subtitle: 'Form A/B & Jan Vishwas QR',
+              accentColor: Colors.orangeAccent,
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NoticeGenerationScreen())),
+            ),
+            _buildResourceTile(
+              icon: Icons.travel_explore,
+              title: 'E-Commerce Audit',
+              subtitle: 'Live Rule 6(10A) Scraper',
+              accentColor: Colors.purpleAccent,
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EcommerceAuditScreen())),
+            ),
+            _buildResourceTile(
+              icon: Icons.smartphone,
+              title: 'Citizen App (Demo)',
+              subtitle: 'Trigger HQ Alerts',
+              accentColor: Colors.redAccent,
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CitizenReportScreen())),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -472,29 +436,31 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: accentColor.withAlpha(25),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(icon, color: accentColor, size: 22),
+                child: Icon(icon, color: accentColor, size: 28),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
                       title,
                       style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
                         color: AppTheme.textPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     Text(
                       subtitle,
                       style: const TextStyle(
-                        fontSize: 10.5,
+                        fontSize: 11,
                         color: AppTheme.textSecondary,
+                        fontWeight: FontWeight.w500,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -502,6 +468,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
+              const Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey, size: 14),
             ],
           ),
         ),

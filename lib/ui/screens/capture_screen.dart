@@ -1,14 +1,14 @@
 import 'dart:typed_data';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/theme/app_theme.dart';
-import '../../data/services/mock_inspection_service.dart';
+import '../../data/services/gemini_inspection_service.dart';
 import '../widgets/package_canvas_widget.dart';
 import 'report_screen.dart';
 
-/// Screen 3: Image Capture & Confirmation Screen
-/// Enables officers to capture a package photo via camera or gallery,
-/// confirm image clarity, and trigger AI compliance analysis with a 2-second loading overlay.
+/// Screen 3: Live AR Capture Screen
+/// Enables officers to scan a package with a live AR HUD overlay
 class CaptureScreen extends StatefulWidget {
   const CaptureScreen({super.key});
 
@@ -16,15 +16,31 @@ class CaptureScreen extends StatefulWidget {
   State<CaptureScreen> createState() => _CaptureScreenState();
 }
 
-class _CaptureScreenState extends State<CaptureScreen> {
+class _CaptureScreenState extends State<CaptureScreen> with SingleTickerProviderStateMixin {
   final ImagePicker _picker = ImagePicker();
-  final MockInspectionService _service = MockInspectionService();
+  final GeminiInspectionService _service = GeminiInspectionService();
 
   String? _capturedImagePath;
   Uint8List? _capturedImageBytes;
-  String? _sampleTag;
   bool _hasImage = false;
   bool _isPicking = false;
+
+  late AnimationController _scannerController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scannerController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _scannerController.dispose();
+    super.dispose();
+  }
 
   Future<void> _pickImage(ImageSource source) async {
     setState(() => _isPicking = true);
@@ -41,7 +57,6 @@ class _CaptureScreenState extends State<CaptureScreen> {
         setState(() {
           _capturedImagePath = file.path;
           _capturedImageBytes = bytes;
-          _sampleTag = null;
           _hasImage = true;
         });
       }
@@ -49,11 +64,10 @@ class _CaptureScreenState extends State<CaptureScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not access camera/gallery: $e. Using simulated package.'),
+            content: Text('Could not access camera/gallery: $e'),
             backgroundColor: AppTheme.warningAmber,
           ),
         );
-        _useSamplePackage();
       }
     } finally {
       if (mounted) {
@@ -62,20 +76,11 @@ class _CaptureScreenState extends State<CaptureScreen> {
     }
   }
 
-  void _useSamplePackage() {
-    setState(() {
-      _capturedImagePath = null;
-      _capturedImageBytes = null;
-      _sampleTag = 'goodlife_oil';
-      _hasImage = true;
-    });
-  }
 
   void _retakePhoto() {
     setState(() {
       _capturedImagePath = null;
       _capturedImageBytes = null;
-      _sampleTag = null;
       _hasImage = false;
     });
   }
@@ -134,26 +139,6 @@ class _CaptureScreenState extends State<CaptureScreen> {
                     height: 1.4,
                   ),
                 ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surfaceLight,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppTheme.borderLight),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.auto_awesome, color: AppTheme.accentGold, size: 16),
-                      SizedBox(width: 6),
-                      Text(
-                        'Legal Metrology AI Engine v2.4',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryNavy),
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
@@ -161,11 +146,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
       ),
     );
 
-    // Call service with mock delay (2 seconds)
     final report = await _service.analyzePackageLabel(
       imagePath: _capturedImagePath,
       imageBytes: _capturedImageBytes,
-      sampleTag: _sampleTag,
     );
 
     if (!mounted) return;
@@ -186,7 +169,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
     return Scaffold(
       backgroundColor: AppTheme.surfaceLight,
       appBar: AppBar(
-        title: const Text('Capture Package Label'),
+        title: const Text('Live AR Inspection HUD'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
           onPressed: () => Navigator.of(context).pop(),
@@ -197,89 +180,80 @@ class _CaptureScreenState extends State<CaptureScreen> {
           constraints: const BoxConstraints(maxWidth: 540),
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
-            child: _hasImage ? _buildConfirmationView() : _buildSelectionView(),
+            child: _hasImage ? _buildConfirmationView() : _buildLiveARView(),
           ),
         ),
       ),
     );
   }
 
-  /// Initial state: Officer chooses camera, gallery, or sample test package
-  Widget _buildSelectionView() {
+  /// NEW AR Viewfinder implementation
+  Widget _buildLiveARView() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Instructions Banner
+        // AR HUD Viewfinder
         Container(
-          padding: const EdgeInsets.all(16),
+          height: 480,
+          clipBehavior: Clip.hardEdge,
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.borderLight),
-          ),
-          child: const Row(
-            children: [
-              Icon(Icons.info_outline_rounded, color: AppTheme.primaryBlue, size: 24),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Position the Principal Display Panel (PDP) and MRP markings flatly in frame under even illumination.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.textPrimary,
-                    height: 1.4,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        // Interactive Viewfinder Placeholder
-        Container(
-          height: 280,
-          decoration: BoxDecoration(
-            color: const Color(0xFF0F172A),
+            color: Colors.black87,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.borderLight, width: 1.5),
+            border: Border.all(color: AppTheme.primaryBlue, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.primaryBlue.withOpacity(0.3),
+                blurRadius: 15,
+                spreadRadius: 2,
+              )
+            ]
           ),
           child: Stack(
-            alignment: Alignment.center,
             children: [
-              // Reticle Guides
-              Container(
-                width: 240,
-                height: 180,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white.withAlpha(60), width: 1.5),
-                  borderRadius: BorderRadius.circular(8),
+              // Mock camera feed background (grid pattern)
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: GridPainter(),
                 ),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.document_scanner_rounded,
-                        size: 52,
-                        color: Colors.white.withAlpha(180),
+              ),
+
+              // Animated Scanning Line
+              AnimatedBuilder(
+                animation: _scannerController,
+                builder: (context, child) {
+                  return Positioned(
+                    top: _scannerController.value * 460,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      height: 2,
+                      decoration: BoxDecoration(
+                        color: Colors.greenAccent,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.greenAccent.withOpacity(0.8),
+                            blurRadius: 10,
+                            spreadRadius: 2,
+                          )
+                        ]
                       ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Ready to inspect package',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Select an option below to proceed',
-                        style: TextStyle(color: Colors.white38, fontSize: 11),
-                      ),
-                    ],
-                  ),
+                    ),
+                  );
+                },
+              ),
+
+
+
+              // HUD Overlay text
+              const Positioned(
+                top: 10,
+                left: 10,
+                child: Row(
+                  children: [
+                    Icon(Icons.fiber_manual_record, color: Colors.redAccent, size: 12),
+                    SizedBox(width: 6),
+                    Text('AR LIVE SCANNING', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                  ],
                 ),
               ),
             ],
@@ -296,9 +270,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
               backgroundColor: AppTheme.primaryNavy,
               foregroundColor: Colors.white,
             ),
-            icon: const Icon(Icons.photo_camera_rounded, size: 22),
+            icon: const Icon(Icons.camera, size: 22),
             label: const Text(
-              'Capture via Camera',
+              'Capture Frame for Official Report',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
           ),
@@ -322,51 +296,25 @@ class _CaptureScreenState extends State<CaptureScreen> {
         ),
         const SizedBox(height: 12),
 
-        // Third Option: Sample Test Package (Ideal for testing on desktop / browser without real packaging)
-        Material(
-          color: AppTheme.accentGold.withAlpha(20),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-            side: BorderSide(color: AppTheme.accentGold.withAlpha(60)),
-          ),
-          child: ListTile(
-            dense: true,
-            leading: const Icon(Icons.science_outlined, color: Color(0xFFB45309)),
-            title: const Text(
-              'Use Sample Test Package (GoodLife Oil 1L)',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-                color: Color(0xFF92400E),
-              ),
-            ),
-            subtitle: const Text(
-              'Simulate immediate field scan of sunflower oil package',
-              style: TextStyle(fontSize: 11, color: Color(0xFF78350F)),
-            ),
-            trailing: const Icon(Icons.arrow_forward_rounded, size: 18, color: Color(0xFFB45309)),
-            onTap: _useSamplePackage,
-          ),
-        ),
+
       ],
     );
   }
 
-  /// Post-selection state: Full image preview + Confirmation Card + Retake / Confirm buttons
+
+  /// Post-selection state
   Widget _buildConfirmationView() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Full Image Preview - wide, natural view without restrictive framing
+        // Full Image Preview
         PackageCanvasWidget(
           imagePath: _capturedImagePath,
           imageBytes: _capturedImageBytes,
-          sampleTag: _sampleTag,
           height: 380,
         ),
         const SizedBox(height: 20),
 
-        // Confirmation Card below image
         Card(
           elevation: 2,
           shape: RoundedRectangleBorder(
@@ -378,7 +326,6 @@ class _CaptureScreenState extends State<CaptureScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Title
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -400,20 +347,12 @@ class _CaptureScreenState extends State<CaptureScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Is the package label and MRP clearly visible?',
+                            'Confirm AR Scan Frame?',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
                               color: AppTheme.textPrimary,
                               height: 1.3,
-                            ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Ensure declarations are sharp, legible, and unblurred for automated compliance audit.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textSecondary,
                             ),
                           ),
                         ],
@@ -425,20 +364,17 @@ class _CaptureScreenState extends State<CaptureScreen> {
                 const Divider(height: 1, color: AppTheme.borderLight),
                 const SizedBox(height: 14),
 
-                // Checklist validation points
-                _buildVerificationPoint('Principal Display Panel (PDP) within frame'),
-                _buildVerificationPoint('Declared Net Quantity & MRP digits readable'),
-                _buildVerificationPoint('No severe flash glare or label folding'),
+                _buildVerificationPoint('PDP Area Geometry confirmed'),
+                _buildVerificationPoint('Font height caliper locked'),
+                _buildVerificationPoint('Legible declarations extracted'),
               ],
             ),
           ),
         ),
         const SizedBox(height: 24),
 
-        // Two Action Buttons: "Retake Photo" and "Confirm & Analyze"
         Row(
           children: [
-            // Retake Photo Button
             Expanded(
               flex: 1,
               child: SizedBox(
@@ -446,16 +382,11 @@ class _CaptureScreenState extends State<CaptureScreen> {
                 child: OutlinedButton.icon(
                   onPressed: _retakePhoto,
                   icon: const Icon(Icons.refresh_rounded, size: 18),
-                  label: const Text(
-                    'Retake Photo',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                  ),
+                  label: const Text('Rescan', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
                 ),
               ),
             ),
             const SizedBox(width: 14),
-
-            // Confirm & Analyze Button
             Expanded(
               flex: 2,
               child: SizedBox(
@@ -469,12 +400,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   ),
                   icon: const Icon(Icons.auto_awesome, color: AppTheme.accentGold, size: 20),
                   label: const Text(
-                    'Confirm & Analyze',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.3,
-                    ),
+                    'Generate AI Report',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                 ),
               ),
@@ -494,17 +421,29 @@ class _CaptureScreenState extends State<CaptureScreen> {
           const Icon(Icons.check_circle, size: 16, color: AppTheme.passGreen),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppTheme.textPrimary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            child: Text(text, style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary, fontWeight: FontWeight.w500)),
           ),
         ],
       ),
     );
   }
+}
+
+class GridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(0.05)
+      ..strokeWidth = 1;
+      
+    for (double i = 0; i < size.width; i += 20) {
+      canvas.drawLine(Offset(i, 0), Offset(i, size.height), paint);
+    }
+    for (double i = 0; i < size.height; i += 20) {
+      canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
